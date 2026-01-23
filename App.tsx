@@ -4,10 +4,12 @@ import {
   Plus, Settings, FileText, Download, Trash2, ChevronLeft, Save, 
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
-  DownloadCloud, UploadCloud, FileJson, ShieldCheck
+  DownloadCloud, UploadCloud, FileJson, ShieldCheck,
+  FileOutput
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
+import { exportToDocx } from './services/docxExportService.ts';
 import { RichTextInput } from './components/RichTextInput.tsx';
 import { TemplatePreview } from './components/TemplatePreview.tsx';
 
@@ -522,13 +524,20 @@ const App: React.FC = () => {
                           margin: 0,
                           filename: `${selectedEval.title}.pdf`,
                           image: { type: 'jpeg', quality: 0.98 },
-                          html2canvas: { scale: 2, useCORS: true },
-                          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                          html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+                          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
                         }).from(el).save();
                       }} 
                       className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-2xl shadow-emerald-600/30 transition transform active:scale-95 tracking-widest uppercase text-xs"
                     >
                       <Download className="w-5 h-5" /> Télécharger PDF
+                    </button>
+                    <button 
+                      onClick={() => exportToDocx(selectedEval, categories, showAnswers)} 
+                      className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 transition transform active:scale-95 tracking-widest uppercase text-xs"
+                    >
+                      <FileOutput className="w-5 h-5" /> Exporter Word
                     </button>
                   </div>
                </div>

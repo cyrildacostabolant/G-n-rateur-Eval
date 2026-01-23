@@ -19,6 +19,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
 
   const category = categories.find(c => c.id === evaluation.categoryId);
   const headerBgColor = category?.color || '#000000';
+  
   // Déterminer si la couleur de fond est sombre pour ajuster le texte
   const isDarkColor = (color: string) => {
     const hex = color.replace('#', '');
@@ -33,10 +34,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
   return (
     <div 
       id={containerId} 
-      className="bg-white p-8 shadow-lg w-full max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 font-sans flex flex-col relative" 
+      className="bg-white p-8 shadow-lg w-full max-w-[210mm] mx-auto min-h-[296.5mm] text-gray-900 font-sans flex flex-col relative box-border" 
       style={{ fontSize: '11pt' }}
     >
-      {/* Header : La couleur de la discipline est sur le titre maintenant */}
+      {/* Header : La couleur de la discipline est sur le titre */}
       <div className="flex w-full border-t-2 border-l-2 border-r-2 border-black">
         <div 
           className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center bg-white" 
@@ -53,7 +54,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
       </div>
 
       <div className="flex w-full border-2 border-black mb-6">
-        <div className="w-3/4 p-2 min-h-[80px] border-r-2 border-black">
+        <div className="w-3/4 p-2 min-h-[140px] border-r-2 border-black">
           <p className="italic underline text-sm mb-1">Commentaire</p>
           <p className="text-sm text-gray-500 italic whitespace-pre-wrap">{evaluation.comment || '...'}</p>
         </div>
@@ -101,8 +102,14 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
         ))}
       </div>
 
-      <div className="mt-10 text-right text-xs text-gray-400 border-t pt-2">
-        EvalGen Local - Page 1
+      {/* Pied de page dynamique */}
+      <div className="mt-10 flex justify-between items-center text-[9pt] text-gray-400 border-t pt-2 uppercase tracking-tight">
+        <div className="flex gap-4 items-center">
+          <span className="font-bold">{evaluation.title}</span>
+          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+          <span className="italic normal-case">{category?.name}</span>
+        </div>
+        <div>Page 1</div>
       </div>
     </div>
   );
