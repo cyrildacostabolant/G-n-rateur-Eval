@@ -1,5 +1,5 @@
 
-import { Evaluation, Category } from '../types.ts';
+import { Evaluation, Category, BackupData } from '../types.ts';
 
 const DB_NAME = 'EvalGenLocalDB';
 const DB_VERSION = 1;
@@ -93,6 +93,38 @@ class StorageService {
       const transaction = db.transaction(STORES.CATEGORIES, 'readwrite');
       transaction.objectStore(STORES.CATEGORIES).delete(id);
       transaction.oncomplete = () => resolve();
+    });
+  }
+
+  async exportFullBackup(): Promise<BackupData> {
+    const [evaluations, categories] = await Promise.all([
+      this.getEvaluations(),
+      this.getCategories()
+    ]);
+    return {
+      evaluations,
+      categories,
+      exportDate: Date.now(),
+      version: "2.0"
+    };
+  }
+
+  async restoreFromBackup(data: BackupData): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORES.EVALUATIONS, STORES.CATEGORIES], 'readwrite');
+      
+      const evalStore = transaction.objectStore(STORES.EVALUATIONS);
+      const catStore = transaction.objectStore(STORES.CATEGORIES);
+
+      evalStore.clear();
+      catStore.clear();
+
+      data.evaluations.forEach(ev => evalStore.put(ev));
+      data.categories.forEach(cat => catStore.put(cat));
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = (e) => reject((e.target as IDBRequest).error);
     });
   }
 }

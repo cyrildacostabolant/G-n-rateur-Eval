@@ -23,4 +23,11 @@ export interface Category {
   color: string;
 }
 
-export type AppView = 'dashboard' | 'editor' | 'categories' | 'preview';
+export interface BackupData {
+  evaluations: Evaluation[];
+  categories: Category[];
+  exportDate: number;
+  version: string;
+}
+
+export type AppView = 'dashboard' | 'editor' | 'categories' | 'preview' | 'backup';

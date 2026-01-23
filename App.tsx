@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Settings, FileText, Download, Trash2, ChevronLeft, Save, 
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
-  FolderKanban, GraduationCap, Clock, Calendar
+  FolderKanban, GraduationCap, Clock, Calendar,
+  DownloadCloud, UploadCloud, FileJson, ShieldCheck
 } from 'lucide-react';
-import { Evaluation, Category, Question, AppView } from './types.ts';
+import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
 import { RichTextInput } from './components/RichTextInput.tsx';
 import { TemplatePreview } from './components/TemplatePreview.tsx';
@@ -70,11 +71,57 @@ const App: React.FC = () => {
     await loadData();
   };
 
+  const handleExportBackup = async () => {
+    try {
+      const data = await storageService.exportFullBackup();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const date = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `evalgen_backup_${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Erreur lors de l'exportation.");
+    }
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content) as BackupData;
+        
+        if (!data.evaluations || !data.categories) {
+          throw new Error("Format de fichier invalide.");
+        }
+
+        if (confirm(`Restaurer cette sauvegarde du ${new Date(data.exportDate).toLocaleDateString()} ? Attention, cela écrasera vos évaluations actuelles.`)) {
+          setIsLoading(true);
+          await storageService.restoreFromBackup(data);
+          await loadData();
+          alert("Restauration réussie !");
+          setView('dashboard');
+        }
+      } catch (err) {
+        alert("Erreur : Le fichier n'est pas une sauvegarde EvalGen valide.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   if (isLoading && view === 'dashboard' && evaluations.length === 0) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold tracking-widest uppercase text-xs">Chargement de votre bibliothèque...</p>
+        <p className="text-slate-500 font-bold tracking-widest uppercase text-xs">Chargement...</p>
       </div>
     );
   }
@@ -118,18 +165,24 @@ const App: React.FC = () => {
             <FolderKanban className="w-5 h-5" /> 
             <span className="font-bold text-sm">Disciplines</span>
           </button>
+          <button 
+            onClick={() => setView('backup')}
+            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition group ${view === 'backup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+          >
+            <DownloadCloud className="w-5 h-5" /> 
+            <span className="font-bold text-sm">Sauvegarde</span>
+          </button>
         </nav>
 
         <div className="p-6 border-t border-slate-800 text-center">
-           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Stockage Local Uniquement</p>
-           <div className="flex items-center justify-center gap-1.5 text-emerald-500">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-             <span className="text-[10px] font-bold uppercase">Sécurisé & Privé</span>
+           <div className="flex items-center justify-center gap-1.5 text-emerald-500 mb-1">
+             <ShieldCheck className="w-3.5 h-3.5" />
+             <span className="text-[10px] font-bold uppercase">Données Privées</span>
            </div>
+           <p className="text-[9px] text-slate-500 leading-tight">Aucun serveur, vos fichiers restent sur votre machine.</p>
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto bg-slate-50">
         <div className="p-10 max-w-7xl mx-auto">
           
@@ -138,7 +191,7 @@ const App: React.FC = () => {
               <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-slate-200 pb-10">
                 <div className="space-y-1">
                   <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ma Bibliothèque</h1>
-                  <p className="text-slate-500 font-medium">{evaluations.length} évaluation(s) créées localement.</p>
+                  <p className="text-slate-500 font-medium">Gérez vos {evaluations.length} évaluations locales.</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -157,8 +210,8 @@ const App: React.FC = () => {
                     <FileText className="w-12 h-12" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">C'est bien vide par ici...</h2>
-                    <p className="text-slate-400 font-medium max-w-md mx-auto">Commencez par créer votre première évaluation. Vos données ne sortiront jamais de cet ordinateur.</p>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Bibliothèque vide</h2>
+                    <p className="text-slate-400 font-medium max-w-md mx-auto">Créez votre première évaluation ou restaurez une sauvegarde depuis l'onglet dédié.</p>
                   </div>
                 </div>
               ) : (
@@ -182,13 +235,56 @@ const App: React.FC = () => {
                         </div>
                         <div className="flex gap-3">
                           <button onClick={() => { setCurrentEval(ev); setView('editor'); }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">Éditer</button>
-                          <button onClick={() => { setSelectedEval(ev); setShowAnswers(false); setView('preview'); }} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">Export PDF</button>
+                          <button onClick={() => { setSelectedEval(ev); setShowAnswers(false); setView('preview'); }} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">PDF</button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {view === 'backup' && (
+            <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-600">
+               <header className="text-center space-y-2">
+                <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Sauvegarde & Restauration</h1>
+                <p className="text-slate-500 font-medium italic">Sécurisez vos données en les exportant sur votre PC.</p>
+              </header>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
+                  <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                    <DownloadCloud className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Exporter</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Générez un fichier JSON contenant toutes vos évaluations et catégories pour les conserver sur votre PC.</p>
+                  </div>
+                  <button 
+                    onClick={handleExportBackup}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                  >
+                    <FileJson className="w-5 h-5" /> Télécharger la sauvegarde
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
+                  <div className="w-20 h-20 bg-orange-50 text-orange-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                    <UploadCloud className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Restaurer</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Sélectionnez un fichier de sauvegarde précédemment exporté pour restaurer votre bibliothèque.</p>
+                  </div>
+                  <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
+                    <UploadCloud className="w-5 h-5" />
+                    Importer un fichier
+                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                  </label>
+                  <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">⚠️ Écrase les données actuelles</p>
+                </div>
+              </div>
             </div>
           )}
 
