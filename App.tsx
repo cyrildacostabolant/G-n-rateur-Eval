@@ -4,11 +4,10 @@ import {
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
   DownloadCloud, UploadCloud, FileJson, ShieldCheck,
-  ChevronDown, ChevronRight, Cloud, CloudUpload, CloudDownload, LogIn, Key
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
-import { googleDriveService } from './services/googleDriveService.ts';
 import { RichTextInput } from './components/RichTextInput.tsx';
 import { TemplatePreview } from './components/TemplatePreview.tsx';
 
@@ -18,19 +17,13 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isDriveLoading, setIsDriveLoading] = useState(false);
-  const [driveFiles, setDriveFiles] = useState<{ id: string; name: string; createdTime: string }[]>([]);
   const [currentEval, setCurrentEval] = useState<Partial<Evaluation> | null>(null);
   const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
   const [showAnswers, setShowAnswers] = useState(true);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-  const [isDriveConnected, setIsDriveConnected] = useState(false);
-  const [googleClientId, setGoogleClientId] = useState(googleDriveService.getClientId() || '');
-  const [showConfig, setShowConfig] = useState(!googleDriveService.getClientId());
 
   useEffect(() => {
     loadData();
-    googleDriveService.init();
   }, []);
 
   const loadData = async () => {
@@ -100,7 +93,7 @@ const App: React.FC = () => {
       const a = document.createElement('a');
       const date = new Date().toISOString().split('T')[0];
       a.href = url;
-      a.download = `evalgen_backup_${date}.json`;
+      a.download = `evaluation_backup_${date}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -130,80 +123,12 @@ const App: React.FC = () => {
           setView('dashboard');
         }
       } catch (err) {
-        alert("Erreur : Le fichier n'est pas une sauvegarde EvalGen valide.");
+        alert("Erreur : Le fichier n'est pas une sauvegarde valide.");
       } finally {
         setIsLoading(false);
       }
     };
     reader.readAsText(file);
-  };
-
-  // Google Drive Functions
-  const handleConnectDrive = async () => {
-    if (!googleClientId) {
-      alert("Veuillez d'abord configurer votre Google Client ID dans les réglages.");
-      setShowConfig(true);
-      return;
-    }
-    setIsDriveLoading(true);
-    try {
-      await googleDriveService.authenticate();
-      setIsDriveConnected(true);
-      await fetchDriveFiles();
-    } catch (e) {
-      alert("Impossible de se connecter à Google Drive. Vérifiez votre Client ID et les origines autorisées.");
-    } finally {
-      setIsDriveLoading(false);
-    }
-  };
-
-  const fetchDriveFiles = async () => {
-    setIsDriveLoading(true);
-    try {
-      const files = await googleDriveService.listBackups();
-      setDriveFiles(files);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsDriveLoading(false);
-    }
-  };
-
-  const handleSaveToDrive = async () => {
-    setIsDriveLoading(true);
-    try {
-      const data = await storageService.exportFullBackup();
-      await googleDriveService.uploadBackup(data);
-      await fetchDriveFiles();
-      alert("Sauvegarde envoyée sur Google Drive !");
-    } catch (e) {
-      alert("Erreur lors de l'envoi sur Drive.");
-    } finally {
-      setIsDriveLoading(false);
-    }
-  };
-
-  const handleRestoreFromDrive = async (fileId: string) => {
-    if (!confirm("Restaurer cette sauvegarde depuis Drive ? Les données locales seront écrasées.")) return;
-    setIsDriveLoading(true);
-    try {
-      const data = await googleDriveService.downloadBackup(fileId);
-      await storageService.restoreFromBackup(data);
-      await loadData();
-      alert("Restauration réussie !");
-      setView('dashboard');
-    } catch (e) {
-      alert("Erreur lors du téléchargement de la sauvegarde.");
-    } finally {
-      setIsDriveLoading(false);
-    }
-  };
-
-  const saveClientId = () => {
-    googleDriveService.setClientId(googleClientId);
-    setShowConfig(false);
-    alert("Configuration enregistrée.");
-    googleDriveService.init();
   };
 
   const toggleCategoryCollapse = (categoryId: string) => {
@@ -386,126 +311,42 @@ const App: React.FC = () => {
           )}
 
           {view === 'backup' && (
-            <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-600">
+            <div className="max-w-2xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-600">
                <header className="text-center space-y-2">
                 <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Sauvegarde & Restauration</h1>
-                <p className="text-slate-500 font-medium italic">Sécurisez vos données sur votre PC ou dans le Cloud.</p>
+                <p className="text-slate-500 font-medium italic">Sécurisez vos données sur votre PC via des fichiers JSON.</p>
               </header>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Section Locale */}
-                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
-                  <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                    <DownloadCloud className="w-10 h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Fichier Local</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Exportez un fichier JSON sur votre disque dur pour une conservation manuelle.</p>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <button 
-                      onClick={handleExportBackup}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                    >
-                      <DownloadCloud className="w-5 h-5" /> Exporter JSON
-                    </button>
-                    <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
-                      <UploadCloud className="w-5 h-5" />
-                      Importer JSON
-                      <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
-                    </label>
-                  </div>
+              <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-10">
+                <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+                  <DownloadCloud className="w-12 h-12" />
+                </div>
+                
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Gestion des Fichiers</h2>
+                  <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                    Toutes vos données sont stockées localement dans votre navigateur. Utilisez l'exportation pour créer une copie de sécurité sur votre ordinateur.
+                  </p>
                 </div>
 
-                {/* Section Google Drive */}
-                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6 flex flex-col">
-                  <div className="w-20 h-20 google-drive-bg text-white rounded-3xl flex items-center justify-center mx-auto shadow-xl">
-                    <Cloud className="w-10 h-10" />
-                  </div>
-                  <div className="space-y-2 flex-1">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Google Drive</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Synchronisez automatiquement vos évaluations avec votre cloud Google.</p>
-                  </div>
-                  
-                  {showConfig ? (
-                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-                       <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                         <Key className="w-4 h-4" /> Configurer Client ID
-                       </div>
-                       <input 
-                        type="text" 
-                        value={googleClientId}
-                        onChange={(e) => setGoogleClientId(e.target.value)}
-                        placeholder="123456-abcde.apps.googleusercontent.com"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500"
-                       />
-                       <button 
-                        onClick={saveClientId}
-                        className="w-full bg-slate-900 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest"
-                       >
-                         Valider le Client ID
-                       </button>
-                       <p className="text-[9px] text-slate-400 text-left leading-tight italic">
-                         Obtenez cet ID sur <a href="https://console.cloud.google.com/" target="_blank" className="text-blue-500 underline">Google Cloud Console</a>. Ajoutez l'URL actuelle de l'app aux "Origines JavaScript autorisées".
-                       </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {!isDriveConnected ? (
-                        <div className="space-y-3">
-                          <button 
-                            onClick={handleConnectDrive}
-                            disabled={isDriveLoading}
-                            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-black py-4 rounded-2xl transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                          >
-                            {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-                            Se connecter à Drive
-                          </button>
-                          <button onClick={() => setShowConfig(true)} className="text-[9px] font-bold text-slate-400 uppercase hover:text-slate-600 transition tracking-widest">Modifier Configuration</button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-3">
-                          <button 
-                            onClick={handleSaveToDrive}
-                            disabled={isDriveLoading}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                          >
-                            {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudUpload className="w-5 h-5" />}
-                            Sauvegarder sur Drive
-                          </button>
-                          
-                          <div className="space-y-2 mt-4 text-left">
-                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dernières sauvegardes :</h4>
-                            {isDriveLoading && driveFiles.length === 0 ? (
-                               <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="w-3 h-3 animate-spin" /> Recherche...</div>
-                            ) : driveFiles.length === 0 ? (
-                               <div className="text-xs text-slate-400 italic">Aucun fichier trouvé.</div>
-                            ) : (
-                              <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                                {driveFiles.map(file => (
-                                  <button 
-                                    key={file.id}
-                                    onClick={() => handleRestoreFromDrive(file.id)}
-                                    className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition flex items-center justify-between group"
-                                  >
-                                    <div>
-                                      <div className="text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{file.name}</div>
-                                      <div className="text-[9px] text-slate-400">{new Date(file.createdTime).toLocaleString()}</div>
-                                    </div>
-                                    <CloudDownload className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition" />
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center mt-2">
-                              <button onClick={fetchDriveFiles} className="text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:underline">Actualiser</button>
-                              <button onClick={() => setShowConfig(true)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:underline">Réglages</button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button 
+                    onClick={handleExportBackup}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                  >
+                    <DownloadCloud className="w-5 h-5" /> Exporter JSON
+                  </button>
+                  <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
+                    <UploadCloud className="w-5 h-5" />
+                    Importer JSON
+                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                  </label>
+                </div>
+
+                <div className="pt-6 border-t border-slate-50">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                    💡 Conseil : Exportez régulièrement vos évaluations pour ne pas les perdre en cas de nettoyage des données de votre navigateur.
+                  </p>
                 </div>
               </div>
             </div>
