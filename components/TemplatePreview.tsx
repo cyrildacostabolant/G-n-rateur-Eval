@@ -26,6 +26,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
       className="bg-white p-8 shadow-lg w-full max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 font-sans flex flex-col relative" 
       style={{ fontSize: '11pt' }}
     >
+      {/* Header avec suppression du mot "Note" */}
       <div className="flex w-full border-t-2 border-l-2 border-r-2 border-black">
         <div 
           className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center" 
@@ -45,10 +46,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
           <p className="text-sm text-gray-500 italic whitespace-pre-wrap">{evaluation.comment || '...'}</p>
         </div>
         <div className="w-1/4 flex flex-col items-center justify-center pt-2">
-          <p className="font-bold underline text-xs mb-1">Note</p>
-          <div className="flex flex-col items-center">
-             <div className="w-12 h-px bg-black mb-1"></div>
-             <p className="font-bold text-xl">{evaluation.totalPoints || '20'}</p>
+          {/* Note section sans le mot "Note" */}
+          <div className="flex flex-col items-center mt-4">
+             <div className="w-16 h-[2px] bg-black mb-1"></div>
+             <p className="font-bold text-2xl">/ {evaluation.totalPoints || '20'}</p>
           </div>
         </div>
       </div>
@@ -71,7 +72,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
                 </div>
                 
                 {showAnswers ? (
-                  <div className="mt-2 pl-6 text-gray-700 italic border-l-2 border-gray-200 py-2" dangerouslySetInnerHTML={{ __html: q.answer }} />
+                  <div 
+                    className="rich-content mt-2 pl-6 text-gray-700 italic border-l-2 border-gray-200 py-2" 
+                    dangerouslySetInnerHTML={{ __html: q.answer }} 
+                  />
                 ) : (
                   <div className="mt-4 pl-6 space-y-4">
                     <div className="border-b border-gray-300 w-full h-4"></div>
@@ -86,7 +90,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
       </div>
 
       <div className="mt-10 text-right text-xs text-gray-400 border-t pt-2">
-        EvalGen DB - Page 1
+        EvalGen Local - Page 1
       </div>
     </div>
   );

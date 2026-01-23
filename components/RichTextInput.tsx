@@ -11,7 +11,6 @@ interface RichTextInputProps {
 export const RichTextInput: React.FC<RichTextInputProps> = ({ value, onChange, placeholder, className }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Synchronize state with editor only if external value changed significantly (to avoid cursor jump)
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;
@@ -35,9 +34,12 @@ export const RichTextInput: React.FC<RichTextInputProps> = ({ value, onChange, p
           const reader = new FileReader();
           reader.onload = (event) => {
             const base64 = event.target?.result as string;
-            document.execCommand('insertImage', false, base64);
+            // On insère l'image avec un style initial pour s'assurer qu'elle est traitable
+            const imgHtml = `<img src="${base64}" style="width: 200px; height: auto;" />`;
+            document.execCommand('insertHTML', false, imgHtml);
           };
           reader.readAsDataURL(blob);
+          e.preventDefault();
         }
       }
     }
@@ -49,7 +51,7 @@ export const RichTextInput: React.FC<RichTextInputProps> = ({ value, onChange, p
       contentEditable
       onInput={handleInput}
       onPaste={handlePaste}
-      className={`min-h-[100px] p-2 border rounded bg-white overflow-y-auto outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+      className={`rich-content min-h-[100px] p-4 border rounded bg-white overflow-y-auto outline-none focus:ring-2 focus:ring-emerald-500 ${className}`}
       placeholder={placeholder}
       style={{ whiteSpace: 'pre-wrap' }}
     />
