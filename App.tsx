@@ -71,6 +71,18 @@ const App: React.FC = () => {
     await loadData();
   };
 
+  const handleAddQuestion = () => {
+    if (!currentEval) return;
+    const lastSection = currentEval.questions?.length ? currentEval.questions[currentEval.questions.length - 1].sectionTitle : '';
+    setCurrentEval({
+      ...currentEval, 
+      questions: [
+        ...(currentEval.questions || []), 
+        { id: crypto.randomUUID(), sectionTitle: lastSection, points: 2, content: '', answer: '' }
+      ]
+    });
+  };
+
   const handleExportBackup = async () => {
     try {
       const data = await storageService.exportFullBackup();
@@ -346,10 +358,7 @@ const App: React.FC = () => {
                 <div className="flex justify-between items-center px-4">
                   <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Questions</h2>
                   <button 
-                    onClick={() => {
-                      const lastSection = currentEval.questions?.length ? currentEval.questions[currentEval.questions.length - 1].sectionTitle : '';
-                      setCurrentEval({...currentEval, questions: [...(currentEval.questions || []), { id: crypto.randomUUID(), sectionTitle: lastSection, points: 2, content: '', answer: '' }]});
-                    }}
+                    onClick={handleAddQuestion}
                     className="bg-white border-2 border-slate-200 text-slate-900 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white px-6 py-3 rounded-2xl font-black flex items-center gap-3 transition-all duration-300 shadow-lg shadow-slate-200/50 uppercase text-xs tracking-widest"
                   >
                     <Plus className="w-5 h-5" /> Ajouter une question
@@ -430,6 +439,18 @@ const App: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Nouveau bouton Ajouter une question en bas de liste */}
+                {currentEval.questions && currentEval.questions.length > 0 && (
+                  <div className="flex justify-center pt-6">
+                    <button 
+                      onClick={handleAddQuestion}
+                      className="bg-white border-2 border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white px-10 py-4 rounded-2xl font-black flex items-center gap-3 transition-all duration-300 shadow-xl shadow-emerald-100 uppercase text-xs tracking-widest"
+                    >
+                      <Plus className="w-6 h-6" /> Ajouter une autre question
+                    </button>
+                  </div>
+                )}
               </section>
             </div>
           )}

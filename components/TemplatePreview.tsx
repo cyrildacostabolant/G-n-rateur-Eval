@@ -18,7 +18,17 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
   });
 
   const category = categories.find(c => c.id === evaluation.categoryId);
-  const headerBgColor = category?.color || '#9de4c1';
+  const headerBgColor = category?.color || '#000000';
+  // Déterminer si la couleur de fond est sombre pour ajuster le texte
+  const isDarkColor = (color: string) => {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128;
+  };
+  const textColor = isDarkColor(headerBgColor) ? 'text-white' : 'text-slate-900';
 
   return (
     <div 
@@ -26,17 +36,19 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
       className="bg-white p-8 shadow-lg w-full max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 font-sans flex flex-col relative" 
       style={{ fontSize: '11pt' }}
     >
-      {/* Header avec suppression du mot "Note" */}
+      {/* Header : La couleur de la discipline est sur le titre maintenant */}
       <div className="flex w-full border-t-2 border-l-2 border-r-2 border-black">
         <div 
-          className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center" 
-          style={{ backgroundColor: headerBgColor }}
+          className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center bg-white" 
         >
           <span className="font-bold underline text-sm mb-1">Date</span>
           <span className="text-xs">.... / .... / ....</span>
         </div>
-        <div className="w-3/4 bg-black p-4 flex items-center justify-center text-center">
-          <h1 className="text-white text-2xl font-bold uppercase tracking-wider">{evaluation.title}</h1>
+        <div 
+          className={`w-3/4 p-4 flex items-center justify-center text-center ${textColor}`}
+          style={{ backgroundColor: headerBgColor }}
+        >
+          <h1 className="text-2xl font-bold uppercase tracking-wider">{evaluation.title}</h1>
         </div>
       </div>
 
@@ -46,10 +58,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
           <p className="text-sm text-gray-500 italic whitespace-pre-wrap">{evaluation.comment || '...'}</p>
         </div>
         <div className="w-1/4 flex flex-col items-center justify-center pt-2">
-          {/* Note section sans le mot "Note" */}
+          {/* Note section sans le slash */}
           <div className="flex flex-col items-center mt-4">
              <div className="w-16 h-[2px] bg-black mb-1"></div>
-             <p className="font-bold text-2xl">/ {evaluation.totalPoints || '20'}</p>
+             <p className="font-bold text-2xl">{evaluation.totalPoints || '20'}</p>
           </div>
         </div>
       </div>
