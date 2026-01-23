@@ -1,15 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Settings, FileText, Download, Trash2, ChevronLeft, Save, 
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
   DownloadCloud, UploadCloud, FileJson, ShieldCheck,
-  FileOutput
+  ChevronDown, ChevronRight, Cloud, CloudUpload, CloudDownload, LogIn
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
-import { exportToDocx } from './services/docxExportService.ts';
+import { googleDriveService } from './services/googleDriveService.ts';
 import { RichTextInput } from './components/RichTextInput.tsx';
 import { TemplatePreview } from './components/TemplatePreview.tsx';
 
@@ -19,12 +18,17 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isDriveLoading, setIsDriveLoading] = useState(false);
+  const [driveFiles, setDriveFiles] = useState<{ id: string; name: string; createdTime: string }[]>([]);
   const [currentEval, setCurrentEval] = useState<Partial<Evaluation> | null>(null);
   const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
   const [showAnswers, setShowAnswers] = useState(true);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
 
   useEffect(() => {
     loadData();
+    googleDriveService.init();
   }, []);
 
   const loadData = async () => {
@@ -60,7 +64,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteEval = async (id: string) => {
+  const handleDeleteEval = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (confirm('Supprimer cette évaluation définitivement ?')) {
       await storageService.deleteEvaluation(id);
       await loadData();
@@ -131,6 +136,84 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // Google Drive Functions
+  const handleConnectDrive = async () => {
+    setIsDriveLoading(true);
+    try {
+      await googleDriveService.authenticate();
+      setIsDriveConnected(true);
+      await fetchDriveFiles();
+    } catch (e) {
+      alert("Impossible de se connecter à Google Drive. Vérifiez votre configuration.");
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
+
+  const fetchDriveFiles = async () => {
+    setIsDriveLoading(true);
+    try {
+      const files = await googleDriveService.listBackups();
+      setDriveFiles(files);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
+
+  const handleSaveToDrive = async () => {
+    setIsDriveLoading(true);
+    try {
+      const data = await storageService.exportFullBackup();
+      await googleDriveService.uploadBackup(data);
+      await fetchDriveFiles();
+      alert("Sauvegarde envoyée sur Google Drive !");
+    } catch (e) {
+      alert("Erreur lors de l'envoi sur Drive.");
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
+
+  const handleRestoreFromDrive = async (fileId: string) => {
+    if (!confirm("Restaurer cette sauvegarde depuis Drive ? Les données locales seront écrasées.")) return;
+    setIsDriveLoading(true);
+    try {
+      const data = await googleDriveService.downloadBackup(fileId);
+      await storageService.restoreFromBackup(data);
+      await loadData();
+      alert("Restauration réussie !");
+      setView('dashboard');
+    } catch (e) {
+      alert("Erreur lors du téléchargement de la sauvegarde.");
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
+
+  const toggleCategoryCollapse = (categoryId: string) => {
+    const newCollapsed = new Set(collapsedCategories);
+    if (newCollapsed.has(categoryId)) {
+      newCollapsed.delete(categoryId);
+    } else {
+      newCollapsed.add(categoryId);
+    }
+    setCollapsedCategories(newCollapsed);
+  };
+
+  const evalsByCategory = useMemo(() => {
+    const grouped: Record<string, Evaluation[]> = {};
+    evaluations.forEach(ev => {
+      if (!grouped[ev.categoryId]) grouped[ev.categoryId] = [];
+      grouped[ev.categoryId].push(ev);
+    });
+    Object.keys(grouped).forEach(catId => {
+      grouped[catId].sort((a, b) => b.createdAt - a.createdAt);
+    });
+    return grouped;
+  }, [evaluations]);
+
   if (isLoading && view === 'dashboard' && evaluations.length === 0) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -142,7 +225,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans text-slate-900">
-      {/* Sidebar Navigation */}
+      {/* Sidebar */}
       <aside className="w-72 bg-slate-900 text-white flex flex-col shrink-0">
         <div className="p-8 flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/40">
@@ -229,29 +312,58 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {evaluations.sort((a,b) => b.createdAt - a.createdAt).map(ev => {
-                    const cat = categories.find(c => c.id === ev.categoryId);
+                <div className="space-y-12">
+                  {categories.map(cat => {
+                    const group = evalsByCategory[cat.id] || [];
+                    if (group.length === 0) return null;
+                    const isCollapsed = collapsedCategories.has(cat.id);
+
                     return (
-                      <div key={ev.id} className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 group">
-                        <div className="flex justify-between items-start mb-6">
-                          <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: cat?.color + '20', color: cat?.color }}>
-                            {cat?.name || 'Général'}
-                          </span>
-                          <button onClick={() => handleDeleteEval(ev.id)} className="text-slate-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-2">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-800 mb-4 line-clamp-2 min-h-[3.5rem] tracking-tight">{ev.title}</h3>
-                        <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mb-8 pb-4 border-b border-slate-50">
-                           <div className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {ev.questions.length} questions</div>
-                           <div className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {new Date(ev.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <div className="flex gap-3">
-                          <button onClick={() => { setCurrentEval(ev); setView('editor'); }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">Éditer</button>
-                          <button onClick={() => { setSelectedEval(ev); setShowAnswers(false); setView('preview'); }} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">PDF</button>
-                        </div>
-                      </div>
+                      <section key={cat.id} className="space-y-6">
+                        <button 
+                          onClick={() => toggleCategoryCollapse(cat.id)}
+                          className="flex items-center justify-between w-full bg-white px-8 py-5 rounded-[2rem] border-l-8 shadow-md hover:shadow-lg transition-all duration-300"
+                          style={{ borderColor: cat.color }}
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="text-2xl font-black text-slate-800 tracking-tight uppercase">{cat.name}</span>
+                            <span className="bg-slate-100 text-slate-500 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">{group.length} ÉVALS</span>
+                          </div>
+                          <div className="text-slate-400">
+                            {isCollapsed ? <ChevronRight className="w-8 h-8" /> : <ChevronDown className="w-8 h-8" />}
+                          </div>
+                        </button>
+
+                        {!isCollapsed && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                            {group.map(ev => (
+                              <div key={ev.id} className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 group relative">
+                                <div className="flex justify-between items-start mb-6">
+                                  <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
+                                    {cat.name}
+                                  </span>
+                                  <button 
+                                    onClick={(e) => handleDeleteEval(ev.id, e)} 
+                                    className="text-red-400 hover:text-red-600 transition p-2 bg-red-50 rounded-xl"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-800 mb-4 line-clamp-2 min-h-[3.5rem] tracking-tight">{ev.title}</h3>
+                                <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mb-8 pb-4 border-b border-slate-50">
+                                   <div className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {ev.questions.length} questions</div>
+                                   <div className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {new Date(ev.createdAt).toLocaleDateString()}</div>
+                                </div>
+                                <div className="flex gap-3">
+                                  <button onClick={() => { setCurrentEval(ev); setView('editor'); }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">Éditer</button>
+                                  <button onClick={() => { setSelectedEval(ev); setShowAnswers(false); setView('preview'); }} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-black py-3 rounded-xl text-xs tracking-widest transition uppercase">PDF</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
                     );
                   })}
                 </div>
@@ -260,10 +372,10 @@ const App: React.FC = () => {
           )}
 
           {view === 'backup' && (
-            <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-600">
+            <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-600">
                <header className="text-center space-y-2">
                 <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Sauvegarde & Restauration</h1>
-                <p className="text-slate-500 font-medium italic">Sécurisez vos données en les exportant sur votre PC.</p>
+                <p className="text-slate-500 font-medium italic">Sécurisez vos données sur votre PC ou dans le Cloud.</p>
               </header>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -272,36 +384,86 @@ const App: React.FC = () => {
                     <DownloadCloud className="w-10 h-10" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Exporter</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Générez un fichier JSON contenant toutes vos évaluations et catégories pour les conserver sur votre PC.</p>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Local</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Exportez un fichier JSON sur votre disque dur.</p>
                   </div>
-                  <button 
-                    onClick={handleExportBackup}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                  >
-                    <FileJson className="w-5 h-5" /> Télécharger la sauvegarde
-                  </button>
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={handleExportBackup}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                    >
+                      <DownloadCloud className="w-5 h-5" /> Exporter JSON
+                    </button>
+                    <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
+                      <UploadCloud className="w-5 h-5" />
+                      Importer JSON
+                      <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
-                  <div className="w-20 h-20 bg-orange-50 text-orange-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                    <UploadCloud className="w-10 h-10" />
+                  <div className="w-20 h-20 google-drive-bg text-white rounded-3xl flex items-center justify-center mx-auto shadow-xl">
+                    <Cloud className="w-10 h-10" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Restaurer</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Sélectionnez un fichier de sauvegarde précédemment exporté pour restaurer votre bibliothèque.</p>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Google Drive</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Synchronisez vos données avec votre compte Cloud.</p>
                   </div>
-                  <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
-                    <UploadCloud className="w-5 h-5" />
-                    Importer un fichier
-                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
-                  </label>
-                  <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">⚠️ Écrase les données actuelles</p>
+                  
+                  {!isDriveConnected ? (
+                    <button 
+                      onClick={handleConnectDrive}
+                      disabled={isDriveLoading}
+                      className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-black py-4 rounded-2xl transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                    >
+                      {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+                      Se connecter à Drive
+                    </button>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <button 
+                        onClick={handleSaveToDrive}
+                        disabled={isDriveLoading}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                      >
+                        {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudUpload className="w-5 h-5" />}
+                        Sauvegarder sur Drive
+                      </button>
+                      
+                      <div className="space-y-2 mt-4 text-left">
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sauvegardes trouvées :</h4>
+                        {isDriveLoading && driveFiles.length === 0 ? (
+                           <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="w-3 h-3 animate-spin" /> Recherche...</div>
+                        ) : driveFiles.length === 0 ? (
+                           <div className="text-xs text-slate-400 italic">Aucun fichier trouvé.</div>
+                        ) : (
+                          <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                            {driveFiles.map(file => (
+                              <button 
+                                key={file.id}
+                                onClick={() => handleRestoreFromDrive(file.id)}
+                                className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition flex items-center justify-between group"
+                              >
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{file.name}</div>
+                                  <div className="text-[9px] text-slate-400">{new Date(file.createdTime).toLocaleString()}</div>
+                                </div>
+                                <CloudDownload className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={fetchDriveFiles} className="text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:underline">Actualiser</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
+          {/* ... reste de la vue (editor, categories, preview) reste inchangé ... */}
           {view === 'editor' && currentEval && (
             <div className="max-w-4xl mx-auto space-y-10 pb-40 animate-in fade-in slide-in-from-bottom-8 duration-500">
               <header className="flex justify-between items-center sticky top-0 bg-slate-50/95 backdrop-blur-xl py-6 z-40 border-b border-slate-200">
@@ -442,7 +604,6 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Nouveau bouton Ajouter une question en bas de liste */}
                 {currentEval.questions && currentEval.questions.length > 0 && (
                   <div className="flex justify-center pt-6">
                     <button 
@@ -532,12 +693,6 @@ const App: React.FC = () => {
                       className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-2xl shadow-emerald-600/30 transition transform active:scale-95 tracking-widest uppercase text-xs"
                     >
                       <Download className="w-5 h-5" /> Télécharger PDF
-                    </button>
-                    <button 
-                      onClick={() => exportToDocx(selectedEval, categories, showAnswers)} 
-                      className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 transition transform active:scale-95 tracking-widest uppercase text-xs"
-                    >
-                      <FileOutput className="w-5 h-5" /> Exporter Word
                     </button>
                   </div>
                </div>

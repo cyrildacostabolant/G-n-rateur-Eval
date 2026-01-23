@@ -6,6 +6,8 @@
     <title>EvalGen Local - Édition Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <script type="importmap">
 {
@@ -14,7 +16,6 @@
     "react-dom": "https://esm.sh/react-dom@19.0.0",
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
     "lucide-react": "https://esm.sh/lucide-react@0.475.0",
-    "docx": "https://esm.sh/docx@9.1.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
@@ -34,7 +35,6 @@
           display: none !important;
         }
       }
-      /* Styles pour le contenu riche (images avec bordures et redimensionnables) */
       .rich-content img {
         border: 2px solid black !important;
         margin: 10px auto;
@@ -42,12 +42,10 @@
         max-width: 100%;
         height: auto;
         cursor: nwse-resize;
-        /* Permet le redimensionnement dans l'éditeur si le navigateur le supporte */
         resize: both; 
         overflow: auto;
       }
       
-      /* Custom Scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
       }
@@ -60,6 +58,10 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
+      }
+
+      .google-drive-bg {
+        background: linear-gradient(135deg, #4285F4 0%, #34A853 33%, #FBBC05 66%, #EA4335 100%);
       }
     </style>
 </head>

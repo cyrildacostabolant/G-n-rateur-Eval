@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Evaluation, Category } from '../types.ts';
 
@@ -75,13 +74,12 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
             </h2>
 
             {questions.map((q, qIdx) => (
-              <div key={q.id} className="space-y-1">
-                <h3 className="text-[#0070c0] font-bold">
-                  {q.number}. ({q.points} pts)
-                </h3>
-                <div className="flex items-start pl-2">
-                   <span className="mr-2 mt-1">◦</span>
-                   <p className="flex-1 whitespace-pre-wrap">{q.content}</p>
+              <div key={q.id} className="space-y-2">
+                <div className="flex items-start">
+                   <span className="text-[#0070c0] font-bold mr-2 shrink-0">{q.number}.</span>
+                   <p className="text-[#0070c0] font-bold flex-1 whitespace-pre-wrap">
+                      {q.content} <span className="ml-1 text-[10pt]">({q.points} pts)</span>
+                   </p>
                 </div>
                 
                 {showAnswers ? (
@@ -90,7 +88,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
                     dangerouslySetInnerHTML={{ __html: q.answer }} 
                   />
                 ) : (
-                  <div className="mt-4 pl-6 space-y-4">
+                  <div className="mt-2 pl-6 space-y-4">
                     <div className="border-b border-gray-300 w-full h-4"></div>
                     <div className="border-b border-gray-300 w-full h-4"></div>
                     <div className="border-b border-gray-300 w-full h-4"></div>
