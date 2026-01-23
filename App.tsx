@@ -4,7 +4,7 @@ import {
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
   DownloadCloud, UploadCloud, FileJson, ShieldCheck,
-  ChevronDown, ChevronRight, Cloud, CloudUpload, CloudDownload, LogIn
+  ChevronDown, ChevronRight, Cloud, CloudUpload, CloudDownload, LogIn, Key
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
@@ -25,6 +25,8 @@ const App: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(true);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [isDriveConnected, setIsDriveConnected] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState(googleDriveService.getClientId() || '');
+  const [showConfig, setShowConfig] = useState(!googleDriveService.getClientId());
 
   useEffect(() => {
     loadData();
@@ -138,13 +140,18 @@ const App: React.FC = () => {
 
   // Google Drive Functions
   const handleConnectDrive = async () => {
+    if (!googleClientId) {
+      alert("Veuillez d'abord configurer votre Google Client ID dans les réglages.");
+      setShowConfig(true);
+      return;
+    }
     setIsDriveLoading(true);
     try {
       await googleDriveService.authenticate();
       setIsDriveConnected(true);
       await fetchDriveFiles();
     } catch (e) {
-      alert("Impossible de se connecter à Google Drive. Vérifiez votre configuration.");
+      alert("Impossible de se connecter à Google Drive. Vérifiez votre Client ID et les origines autorisées.");
     } finally {
       setIsDriveLoading(false);
     }
@@ -192,6 +199,13 @@ const App: React.FC = () => {
     }
   };
 
+  const saveClientId = () => {
+    googleDriveService.setClientId(googleClientId);
+    setShowConfig(false);
+    alert("Configuration enregistrée.");
+    googleDriveService.init();
+  };
+
   const toggleCategoryCollapse = (categoryId: string) => {
     const newCollapsed = new Set(collapsedCategories);
     if (newCollapsed.has(categoryId)) {
@@ -225,15 +239,15 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans text-slate-900">
-      {/* Sidebar */}
+      {/* Sidebar Navigation */}
       <aside className="w-72 bg-slate-900 text-white flex flex-col shrink-0">
         <div className="p-8 flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/40">
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
           <div>
-            <span className="font-black text-xl tracking-tighter block leading-none">EvalGen</span>
-            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest leading-none">Local Edition</span>
+            <span className="font-black text-xl tracking-tighter block leading-none">Evaluation</span>
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest leading-none">Famille DCB</span>
           </div>
         </div>
 
@@ -379,13 +393,14 @@ const App: React.FC = () => {
               </header>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Section Locale */}
                 <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
                   <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
                     <DownloadCloud className="w-10 h-10" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Local</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Exportez un fichier JSON sur votre disque dur.</p>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Fichier Local</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Exportez un fichier JSON sur votre disque dur pour une conservation manuelle.</p>
                   </div>
                   <div className="flex flex-col gap-3">
                     <button 
@@ -402,60 +417,93 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6">
+                {/* Section Google Drive */}
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-6 flex flex-col">
                   <div className="w-20 h-20 google-drive-bg text-white rounded-3xl flex items-center justify-center mx-auto shadow-xl">
                     <Cloud className="w-10 h-10" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex-1">
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Google Drive</h2>
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Synchronisez vos données avec votre compte Cloud.</p>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Synchronisez automatiquement vos évaluations avec votre cloud Google.</p>
                   </div>
                   
-                  {!isDriveConnected ? (
-                    <button 
-                      onClick={handleConnectDrive}
-                      disabled={isDriveLoading}
-                      className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-black py-4 rounded-2xl transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                    >
-                      {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-                      Se connecter à Drive
-                    </button>
+                  {showConfig ? (
+                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+                       <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
+                         <Key className="w-4 h-4" /> Configurer Client ID
+                       </div>
+                       <input 
+                        type="text" 
+                        value={googleClientId}
+                        onChange={(e) => setGoogleClientId(e.target.value)}
+                        placeholder="123456-abcde.apps.googleusercontent.com"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500"
+                       />
+                       <button 
+                        onClick={saveClientId}
+                        className="w-full bg-slate-900 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest"
+                       >
+                         Valider le Client ID
+                       </button>
+                       <p className="text-[9px] text-slate-400 text-left leading-tight italic">
+                         Obtenez cet ID sur <a href="https://console.cloud.google.com/" target="_blank" className="text-blue-500 underline">Google Cloud Console</a>. Ajoutez l'URL actuelle de l'app aux "Origines JavaScript autorisées".
+                       </p>
+                    </div>
                   ) : (
-                    <div className="flex flex-col gap-3">
-                      <button 
-                        onClick={handleSaveToDrive}
-                        disabled={isDriveLoading}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                      >
-                        {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudUpload className="w-5 h-5" />}
-                        Sauvegarder sur Drive
-                      </button>
-                      
-                      <div className="space-y-2 mt-4 text-left">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sauvegardes trouvées :</h4>
-                        {isDriveLoading && driveFiles.length === 0 ? (
-                           <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="w-3 h-3 animate-spin" /> Recherche...</div>
-                        ) : driveFiles.length === 0 ? (
-                           <div className="text-xs text-slate-400 italic">Aucun fichier trouvé.</div>
-                        ) : (
-                          <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                            {driveFiles.map(file => (
-                              <button 
-                                key={file.id}
-                                onClick={() => handleRestoreFromDrive(file.id)}
-                                className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition flex items-center justify-between group"
-                              >
-                                <div>
-                                  <div className="text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{file.name}</div>
-                                  <div className="text-[9px] text-slate-400">{new Date(file.createdTime).toLocaleString()}</div>
-                                </div>
-                                <CloudDownload className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition" />
-                              </button>
-                            ))}
+                    <div className="space-y-4">
+                      {!isDriveConnected ? (
+                        <div className="space-y-3">
+                          <button 
+                            onClick={handleConnectDrive}
+                            disabled={isDriveLoading}
+                            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-black py-4 rounded-2xl transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                          >
+                            {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+                            Se connecter à Drive
+                          </button>
+                          <button onClick={() => setShowConfig(true)} className="text-[9px] font-bold text-slate-400 uppercase hover:text-slate-600 transition tracking-widest">Modifier Configuration</button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          <button 
+                            onClick={handleSaveToDrive}
+                            disabled={isDriveLoading}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                          >
+                            {isDriveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudUpload className="w-5 h-5" />}
+                            Sauvegarder sur Drive
+                          </button>
+                          
+                          <div className="space-y-2 mt-4 text-left">
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dernières sauvegardes :</h4>
+                            {isDriveLoading && driveFiles.length === 0 ? (
+                               <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="w-3 h-3 animate-spin" /> Recherche...</div>
+                            ) : driveFiles.length === 0 ? (
+                               <div className="text-xs text-slate-400 italic">Aucun fichier trouvé.</div>
+                            ) : (
+                              <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                                {driveFiles.map(file => (
+                                  <button 
+                                    key={file.id}
+                                    onClick={() => handleRestoreFromDrive(file.id)}
+                                    className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition flex items-center justify-between group"
+                                  >
+                                    <div>
+                                      <div className="text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{file.name}</div>
+                                      <div className="text-[9px] text-slate-400">{new Date(file.createdTime).toLocaleString()}</div>
+                                    </div>
+                                    <CloudDownload className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center mt-2">
+                              <button onClick={fetchDriveFiles} className="text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:underline">Actualiser</button>
+                              <button onClick={() => setShowConfig(true)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:underline">Réglages</button>
+                            </div>
                           </div>
-                        )}
-                        <button onClick={fetchDriveFiles} className="text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:underline">Actualiser</button>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -463,7 +511,6 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* ... reste de la vue (editor, categories, preview) reste inchangé ... */}
           {view === 'editor' && currentEval && (
             <div className="max-w-4xl mx-auto space-y-10 pb-40 animate-in fade-in slide-in-from-bottom-8 duration-500">
               <header className="flex justify-between items-center sticky top-0 bg-slate-50/95 backdrop-blur-xl py-6 z-40 border-b border-slate-200">

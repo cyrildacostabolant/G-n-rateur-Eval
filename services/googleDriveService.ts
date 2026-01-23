@@ -1,23 +1,31 @@
 
 import { BackupData } from '../types.ts';
 
-// Note: Pour une exécution locale réelle, l'utilisateur devrait configurer son propre Client ID.
-// Nous utilisons ici une approche par jeton d'accès via Google Identity Services.
-const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Placeholder - L'utilisateur devra le configurer ou le passer via env
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 class GoogleDriveService {
   private tokenClient: any = null;
   private accessToken: string | null = null;
 
+  // Récupère le client ID depuis le localStorage
+  getClientId(): string | null {
+    return localStorage.getItem('evalgen_google_client_id');
+  }
+
+  setClientId(id: string) {
+    localStorage.setItem('evalgen_google_client_id', id);
+    this.tokenClient = null; // Reset pour forcer la réinitialisation
+  }
+
   async init() {
+    const clientId = this.getClientId();
+    if (!clientId) return;
+
     return new Promise<void>((resolve) => {
       const checkGapi = () => {
-        // Fix: Use type casting to access the globally injected 'google' object from Google Identity Services scripts
         if ((window as any).google && (window as any).google.accounts) {
-          // Fix: Access initTokenClient via casted window object to avoid TypeScript property existence errors
           this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
+            client_id: clientId,
             scope: SCOPES,
             callback: (response: any) => {
               if (response.error !== undefined) {
@@ -37,6 +45,13 @@ class GoogleDriveService {
   }
 
   async authenticate(): Promise<string> {
+    const clientId = this.getClientId();
+    if (!clientId) throw new Error('Client ID non configuré');
+
+    if (!this.tokenClient) {
+      await this.init();
+    }
+
     return new Promise((resolve, reject) => {
       if (!this.tokenClient) {
         reject('Google Drive Client non initialisé');
