@@ -1,0 +1,5 @@
+{
+  "name": "Générateur d'Évaluations Scolaires",
+  "description": "Une application pour créer, gérer et exporter des évaluations scolaires avec un formalisme professionnel, incluant le support des images par copier-coller et l'export PDF.",
+  "requestFramePermissions": []
+}
