@@ -24,8 +24,6 @@ class GitHubService {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // On fusionne avec les valeurs par défaut pour s'assurer que si le repo est vide, 
-        // on utilise celui demandé par l'utilisateur.
         return {
           ...defaultConfig,
           ...parsed,
@@ -57,7 +55,6 @@ class GitHubService {
     const content = JSON.stringify(data, null, 2);
     const base64Content = btoa(unescape(encodeURIComponent(content)));
 
-    // 1. On vérifie si le fichier existe déjà pour récupérer son SHA
     let sha: string | null = null;
     try {
       const getRes = await fetch(url, {
@@ -68,10 +65,9 @@ class GitHubService {
         sha = fileData.sha;
       }
     } catch (e) {
-      // Le fichier n'existe probablement pas encore
+      // Le fichier n'existe pas encore
     }
 
-    // 2. Envoi du fichier (PUT)
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -93,6 +89,52 @@ class GitHubService {
 
     const result = await response.json();
     return result.content.html_url;
+  }
+
+  async getLatestBackup(): Promise<BackupData> {
+    const config = this.getConfig();
+    if (!config.token || !config.repo) {
+      throw new Error("Configuration GitHub incomplète.");
+    }
+
+    const url = `https://api.github.com/repos/${config.repo}/contents/${config.path}`;
+    
+    // 1. Lister les fichiers dans le dossier
+    const response = await fetch(url, {
+      headers: { 'Authorization': `token ${config.token}` }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Impossible d'accéder au dossier de sauvegarde sur GitHub.");
+    }
+    
+    const files = await response.json();
+    if (!Array.isArray(files)) throw new Error("Format de réponse GitHub invalide (attendu: liste de fichiers).");
+    
+    // 2. Trouver le fichier JSON le plus récent (trié par nom YYYY-MM-DD)
+    const backupFiles = files
+      .filter(f => f.type === 'file' && f.name.startsWith('evaluation_backup_') && f.name.endsWith('.json'))
+      .sort((a, b) => b.name.localeCompare(a.name));
+      
+    if (backupFiles.length === 0) {
+      throw new Error("Aucune sauvegarde trouvée dans le dossier GitHub.");
+    }
+    
+    const latestFile = backupFiles[0];
+    
+    // 3. Récupérer le contenu du fichier sélectionné
+    const fileResponse = await fetch(latestFile.url, {
+      headers: { 'Authorization': `token ${config.token}` }
+    });
+    
+    if (!fileResponse.ok) throw new Error("Erreur lors du téléchargement de la sauvegarde.");
+    
+    const fileData = await fileResponse.json();
+    
+    // Décodage Base64 sécurisé pour l'UTF-8
+    const decodedContent = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g, ''))));
+    return JSON.parse(decodedContent);
   }
 }
 

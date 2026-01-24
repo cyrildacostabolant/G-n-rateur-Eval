@@ -5,7 +5,8 @@ import {
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
   DownloadCloud, UploadCloud, FileJson, ShieldCheck,
-  ChevronDown, ChevronRight, Github, Link as LinkIcon, Info, ExternalLink
+  ChevronDown, ChevronRight, Github, Link as LinkIcon, Info, ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
@@ -121,6 +122,31 @@ const App: React.FC = () => {
       alert(`Sauvegarde réussie sur GitHub !`);
     } catch (e: any) {
       alert(`Erreur GitHub: ${e.message}`);
+    } finally {
+      setIsGitHubLoading(false);
+    }
+  };
+
+  const handleRestoreFromGitHub = async () => {
+    if (!ghConfig.token || !ghConfig.repo) {
+      alert("Veuillez configurer GitHub avant de tenter une restauration.");
+      setShowGHConfig(true);
+      return;
+    }
+
+    if (!confirm("Voulez-vous écraser vos données locales par la sauvegarde la plus récente sur GitHub ?")) {
+      return;
+    }
+
+    setIsGitHubLoading(true);
+    try {
+      const data = await githubService.getLatestBackup();
+      await storageService.restoreFromBackup(data);
+      await loadData();
+      alert(`Restauration réussie ! Sauvegarde du ${new Date(data.exportDate).toLocaleDateString()} appliquée.`);
+      setView('dashboard');
+    } catch (e: any) {
+      alert(`Erreur de restauration GitHub: ${e.message}`);
     } finally {
       setIsGitHubLoading(false);
     }
@@ -440,16 +466,26 @@ const App: React.FC = () => {
                        </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                        <button 
                         onClick={handleSaveToGitHub}
                         disabled={isGitHubLoading}
-                        className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/20 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                        className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
                       >
                         {isGitHubLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
                         Pousser vers GitHub
                       </button>
-                      <div className="flex justify-between items-center text-left">
+
+                      <button 
+                        onClick={handleRestoreFromGitHub}
+                        disabled={isGitHubLoading}
+                        className="w-full bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-800 font-black py-4 rounded-2xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                      >
+                        {isGitHubLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RotateCcw className="w-5 h-5" />}
+                        Restaurer depuis GitHub
+                      </button>
+
+                      <div className="flex justify-between items-center text-left mt-2">
                         <div className="flex items-center gap-2 text-[10px] text-emerald-600 font-bold uppercase tracking-tight">
                            <Info className="w-3 h-3" /> Configuré : {ghConfig.repo}
                         </div>
