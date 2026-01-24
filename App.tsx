@@ -1,13 +1,15 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Settings, FileText, Download, Trash2, ChevronLeft, Save, 
   Eye, Loader2, LayoutDashboard, FileSearch, Trash, 
   FolderKanban, GraduationCap, Clock, Calendar,
   DownloadCloud, UploadCloud, FileJson, ShieldCheck,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, Github, Link as LinkIcon, Info, ExternalLink
 } from 'lucide-react';
 import { Evaluation, Category, Question, AppView, BackupData } from './types.ts';
 import { storageService } from './services/storageService.ts';
+import { githubService, GitHubConfig } from './services/githubService.ts';
 import { RichTextInput } from './components/RichTextInput.tsx';
 import { TemplatePreview } from './components/TemplatePreview.tsx';
 
@@ -17,10 +19,15 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
   const [currentEval, setCurrentEval] = useState<Partial<Evaluation> | null>(null);
   const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
   const [showAnswers, setShowAnswers] = useState(true);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+  // GitHub State
+  const [ghConfig, setGhConfig] = useState<GitHubConfig>(githubService.getConfig());
+  const [showGHConfig, setShowGHConfig] = useState(!githubService.getConfig().token);
 
   useEffect(() => {
     loadData();
@@ -80,7 +87,7 @@ const App: React.FC = () => {
       ...currentEval, 
       questions: [
         ...(currentEval.questions || []), 
-        { id: crypto.randomUUID(), sectionTitle: lastSection, points: 2, content: '', answer: '' }
+        { id: crypto.randomUUID(), sectionTitle: lastSection, points: 2, content: '', answer: '', studentTemplate: '' }
       ]
     });
   };
@@ -99,6 +106,30 @@ const App: React.FC = () => {
     } catch (e) {
       alert("Erreur lors de l'exportation.");
     }
+  };
+
+  const handleSaveToGitHub = async () => {
+    if (!ghConfig.token || !ghConfig.repo) {
+      alert("Veuillez configurer GitHub avant d'exporter.");
+      setShowGHConfig(true);
+      return;
+    }
+    setIsGitHubLoading(true);
+    try {
+      const data = await storageService.exportFullBackup();
+      await githubService.uploadToGitHub(data);
+      alert(`Sauvegarde réussie sur GitHub !`);
+    } catch (e: any) {
+      alert(`Erreur GitHub: ${e.message}`);
+    } finally {
+      setIsGitHubLoading(false);
+    }
+  };
+
+  const saveGitHubSettings = () => {
+    githubService.saveConfig(ghConfig);
+    setShowGHConfig(false);
+    alert("Paramètres GitHub enregistrés.");
   };
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,42 +342,121 @@ const App: React.FC = () => {
           )}
 
           {view === 'backup' && (
-            <div className="max-w-2xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-600">
+            <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-600">
                <header className="text-center space-y-2">
                 <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Sauvegarde & Restauration</h1>
-                <p className="text-slate-500 font-medium italic">Sécurisez vos données sur votre PC via des fichiers JSON.</p>
+                <p className="text-slate-500 font-medium italic">Sécurisez vos données sur votre PC ou sur GitHub.</p>
               </header>
 
-              <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-10">
-                <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
-                  <DownloadCloud className="w-12 h-12" />
-                </div>
-                
-                <div className="space-y-4">
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Gestion des Fichiers</h2>
-                  <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                    Toutes vos données sont stockées localement dans votre navigateur. Utilisez l'exportation pour créer une copie de sécurité sur votre ordinateur.
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Fichier Local */}
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-8 flex flex-col">
+                  <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                    <DownloadCloud className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Fichier Local</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Exportez un fichier JSON manuellement sur votre disque dur.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <button 
+                      onClick={handleExportBackup}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                    >
+                      <DownloadCloud className="w-5 h-5" /> Exporter JSON
+                    </button>
+                    <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
+                      <UploadCloud className="w-5 h-5" />
+                      Importer JSON
+                      <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                    </label>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button 
-                    onClick={handleExportBackup}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-                  >
-                    <DownloadCloud className="w-5 h-5" /> Exporter JSON
-                  </button>
-                  <label className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/10 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-pointer">
-                    <UploadCloud className="w-5 h-5" />
-                    Importer JSON
-                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
-                  </label>
-                </div>
+                {/* GitHub Sync */}
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200/40 text-center space-y-8 flex flex-col">
+                  <div className="w-20 h-20 bg-slate-100 text-slate-900 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                    <Github className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">GitHub Sync</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed font-medium">Synchronisez vos données directement sur un dépôt GitHub.</p>
+                  </div>
 
-                <div className="pt-6 border-t border-slate-50">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                    💡 Conseil : Exportez régulièrement vos évaluations pour ne pas les perdre en cas de nettoyage des données de votre navigateur.
-                  </p>
+                  {showGHConfig ? (
+                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4 text-left">
+                       <div className="space-y-2">
+                         <div className="flex justify-between items-center">
+                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1">GitHub Token (PAT)</label>
+                           <a href="https://github.com/settings/tokens" target="_blank" className="text-[9px] text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                             Comment obtenir un token ? <ExternalLink className="w-2.5 h-2.5" />
+                           </a>
+                         </div>
+                         <input 
+                           type="password" 
+                           value={ghConfig.token}
+                           onChange={(e) => setGhConfig({...ghConfig, token: e.target.value})}
+                           placeholder="ghp_xxxxxxxxxxxx"
+                           className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:ring-2 focus:ring-slate-400"
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1">Dépôt (utilisateur/nom-depot)</label>
+                         <input 
+                           type="text" 
+                           value={ghConfig.repo}
+                           onChange={(e) => setGhConfig({...ghConfig, repo: e.target.value})}
+                           placeholder="mon-nom/mon-depot-evals"
+                           className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-400"
+                         />
+                       </div>
+                       <div className="flex gap-2">
+                         <div className="flex-1 space-y-2">
+                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1">Branche</label>
+                           <input 
+                             type="text" 
+                             value={ghConfig.branch}
+                             onChange={(e) => setGhConfig({...ghConfig, branch: e.target.value})}
+                             placeholder="main"
+                             className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs outline-none"
+                           />
+                         </div>
+                         <div className="flex-1 space-y-2">
+                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1">Dossier</label>
+                           <input 
+                             type="text" 
+                             value={ghConfig.path}
+                             onChange={(e) => setGhConfig({...ghConfig, path: e.target.value})}
+                             placeholder="backups"
+                             className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs outline-none"
+                           />
+                         </div>
+                       </div>
+                       <button 
+                         onClick={saveGitHubSettings}
+                         className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-xl shadow-slate-900/20"
+                       >
+                         Valider Configuration
+                       </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                       <button 
+                        onClick={handleSaveToGitHub}
+                        disabled={isGitHubLoading}
+                        className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-900/20 transition transform active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                      >
+                        {isGitHubLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+                        Pousser vers GitHub
+                      </button>
+                      <div className="flex justify-between items-center text-left">
+                        <div className="flex items-center gap-2 text-[10px] text-emerald-600 font-bold uppercase tracking-tight">
+                           <Info className="w-3 h-3" /> Configuré : {ghConfig.repo}
+                        </div>
+                        <button onClick={() => setShowGHConfig(true)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition">Réglages</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -459,23 +569,40 @@ const App: React.FC = () => {
                           />
                         </div>
                         <div className="col-span-12 space-y-2">
-                           <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1">Énoncé</label>
-                           <textarea 
+                           <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1">Énoncé (Support des images par copier-coller)</label>
+                           <RichTextInput 
                             value={q.content}
-                            onChange={(e) => {
+                            onChange={(val) => {
                               const qs = [...(currentEval.questions || [])];
-                              qs[idx].content = e.target.value;
+                              qs[idx].content = val;
                               setCurrentEval({...currentEval, questions: qs});
                             }}
-                            rows={3}
                             placeholder="Saisissez votre question..."
-                            className="w-full bg-white border-2 border-slate-50 rounded-2xl px-6 py-5 text-slate-800 font-bold outline-none focus:border-emerald-200 transition text-lg"
+                            className="mt-1 shadow-inner !rounded-2xl !border-none !bg-white !text-lg !font-bold"
                           />
                         </div>
-                        <div className="col-span-12 space-y-2">
+                        
+                        <div className="col-span-12 md:col-span-6 space-y-2">
                           <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1 flex justify-between">
-                            Corrigé & Aide (Images autorisées)
-                            <span className="text-emerald-400 font-normal normal-case italic">Copier-coller images ici</span>
+                            Amorce / Schéma vierge (Élève)
+                            <span className="text-blue-400 font-normal normal-case italic">Remplacera les lignes</span>
+                          </label>
+                          <RichTextInput 
+                            value={q.studentTemplate || ''}
+                            onChange={(val) => {
+                              const qs = [...(currentEval.questions || [])];
+                              qs[idx].studentTemplate = val;
+                              setCurrentEval({...currentEval, questions: qs});
+                            }}
+                            placeholder="Coller ici le schéma vierge pour l'élève..."
+                            className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px] !bg-blue-50/20"
+                          />
+                        </div>
+
+                        <div className="col-span-12 md:col-span-6 space-y-2">
+                          <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1 flex justify-between">
+                            Corrigé / Schéma complété (Admin)
+                            <span className="text-emerald-400 font-normal normal-case italic">Vue corrigée</span>
                           </label>
                           <RichTextInput 
                             value={q.answer}
@@ -484,7 +611,8 @@ const App: React.FC = () => {
                               qs[idx].answer = val;
                               setCurrentEval({...currentEval, questions: qs});
                             }}
-                            className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px]"
+                            placeholder="Coller ici la réponse ou le schéma complété..."
+                            className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px] !bg-emerald-50/20"
                           />
                         </div>
                       </div>

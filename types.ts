@@ -5,6 +5,7 @@ export interface Question {
   points: number;
   content: string;
   answer: string;
+  studentTemplate?: string; // Nouveau champ pour le schéma vierge ou l'amorce élève
 }
 
 export interface Evaluation {

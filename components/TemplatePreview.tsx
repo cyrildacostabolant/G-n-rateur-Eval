@@ -19,7 +19,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
   const category = categories.find(c => c.id === evaluation.categoryId);
   const headerBgColor = category?.color || '#000000';
   
-  // Déterminer si la couleur de fond est sombre pour ajuster le texte
   const isDarkColor = (color: string) => {
     const hex = color.replace('#', '');
     const r = parseInt(hex.substr(0, 2), 16);
@@ -30,17 +29,24 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
   };
   const textColor = isDarkColor(headerBgColor) ? 'text-white' : 'text-slate-900';
 
+  /**
+   * Vérifie si le HTML contient du contenu réel (texte ou images)
+   */
+  const hasContent = (html?: string) => {
+    if (!html) return false;
+    const clean = html.replace(/<[^>]*>/g, '').trim();
+    return clean.length > 0 || html.includes('<img');
+  };
+
   return (
     <div 
       id={containerId} 
       className="bg-white p-8 shadow-lg w-full max-w-[210mm] mx-auto min-h-[296.5mm] text-gray-900 font-sans flex flex-col relative box-border" 
       style={{ fontSize: '11pt' }}
     >
-      {/* Header : La couleur de la discipline est sur le titre */}
+      {/* Header */}
       <div className="flex w-full border-t-2 border-l-2 border-r-2 border-black">
-        <div 
-          className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center bg-white" 
-        >
+        <div className="w-1/4 p-2 flex flex-col items-center justify-center border-r-2 border-black text-center bg-white">
           <span className="font-bold underline text-sm mb-1">Date</span>
           <span className="text-xs">.... / .... / ....</span>
         </div>
@@ -58,7 +64,6 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
           <p className="text-sm text-gray-500 italic whitespace-pre-wrap">{evaluation.comment || '...'}</p>
         </div>
         <div className="w-1/4 flex flex-col items-center justify-center pt-2">
-          {/* Note section sans le slash */}
           <div className="flex flex-col items-center mt-4">
              <div className="w-16 h-[2px] bg-black mb-1"></div>
              <p className="font-bold text-2xl">{evaluation.totalPoints || '20'}</p>
@@ -74,25 +79,39 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
             </h2>
 
             {questions.map((q, qIdx) => (
-              <div key={q.id} className="space-y-2">
+              <div key={q.id} className="space-y-2 break-inside-avoid">
                 <div className="flex items-start">
                    <span className="text-[#0070c0] font-bold mr-2 shrink-0">{q.number}.</span>
-                   <p className="text-[#0070c0] font-bold flex-1 whitespace-pre-wrap">
-                      {q.content} <span className="ml-1 text-[10pt]">({q.points} pts)</span>
-                   </p>
+                   <div className="flex-1">
+                      <div className="text-[#0070c0] font-bold">
+                         <div className="rich-content inline-block" dangerouslySetInnerHTML={{ __html: q.content }} />
+                         <span className="ml-1 text-[10pt] whitespace-nowrap">({q.points} pts)</span>
+                      </div>
+                   </div>
                 </div>
                 
                 {showAnswers ? (
+                  /* MODE CORRIGÉ : On affiche le corrigé complet */
                   <div 
-                    className="rich-content mt-2 pl-6 text-gray-700 italic border-l-2 border-gray-200 py-2" 
+                    className="rich-content mt-2 pl-6 text-gray-700 italic border-l-2 border-emerald-100 py-1" 
                     dangerouslySetInnerHTML={{ __html: q.answer }} 
                   />
                 ) : (
-                  <div className="mt-2 pl-6 space-y-4">
-                    <div className="border-b border-gray-300 w-full h-4"></div>
-                    <div className="border-b border-gray-300 w-full h-4"></div>
-                    <div className="border-b border-gray-300 w-full h-4"></div>
-                  </div>
+                  /* MODE ÉLÈVE */
+                  hasContent(q.studentTemplate) ? (
+                    /* Si un schéma vierge ou une amorce est définie, on l'affiche */
+                    <div 
+                      className="rich-content mt-2 pl-6" 
+                      dangerouslySetInnerHTML={{ __html: q.studentTemplate! }} 
+                    />
+                  ) : (
+                    /* Sinon, on affiche les lignes de réponse classiques */
+                    <div className="mt-2 pl-6 space-y-4">
+                      <div className="border-b border-gray-300 w-full h-4"></div>
+                      <div className="border-b border-gray-300 w-full h-4"></div>
+                      <div className="border-b border-gray-300 w-full h-4"></div>
+                    </div>
+                  )
                 )}
               </div>
             ))}
@@ -100,7 +119,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ evaluation, ca
         ))}
       </div>
 
-      {/* Pied de page dynamique */}
+      {/* Pied de page */}
       <div className="mt-10 flex justify-between items-center text-[9pt] text-gray-400 border-t pt-2 uppercase tracking-tight">
         <div className="flex gap-4 items-center">
           <span className="font-bold">{evaluation.title}</span>

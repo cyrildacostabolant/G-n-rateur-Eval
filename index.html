@@ -33,15 +33,37 @@
           display: none !important;
         }
       }
-      .rich-content img {
-        border: 2px solid black !important;
-        margin: 10px auto;
-        display: block;
+      
+      /* Styles pour le contenu riche (Éditeur et PDF) */
+      .rich-content {
+        line-height: 1.6;
+      }
+
+      /* Wrapper pour permettre le redimensionnement manuel et le cadre de 2px */
+      .img-wrapper {
+        display: inline-block;
+        border: 2px solid black;
+        margin: 10px 0;
+        resize: both;
+        overflow: hidden;
         max-width: 100%;
-        height: auto;
-        cursor: nwse-resize;
-        resize: both; 
-        overflow: auto;
+        line-height: 0;
+        vertical-align: middle;
+      }
+
+      .img-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      /* Masquer les poignées de redimensionnement à l'impression */
+      @media print {
+        .img-wrapper {
+          resize: none !important;
+          border-width: 2px !important; /* On garde le cadre noir */
+        }
       }
       
       ::-webkit-scrollbar {
