@@ -9,23 +9,33 @@ export interface GitHubConfig {
 }
 
 const STORAGE_KEY = 'eval_gen_github_config';
+const DEFAULT_REPO = 'cyrildacostabolant/G-n-rateur-Eval';
 
 class GitHubService {
   getConfig(): GitHubConfig {
     const stored = localStorage.getItem(STORAGE_KEY);
+    const defaultConfig: GitHubConfig = {
+      token: '',
+      repo: DEFAULT_REPO,
+      branch: 'main',
+      path: 'backups'
+    };
+
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // On fusionne avec les valeurs par défaut pour s'assurer que si le repo est vide, 
+        // on utilise celui demandé par l'utilisateur.
+        return {
+          ...defaultConfig,
+          ...parsed,
+          repo: parsed.repo || DEFAULT_REPO
+        };
       } catch (e) {
         console.error("Erreur lors du parsing de la config GitHub");
       }
     }
-    return {
-      token: '',
-      repo: '',
-      branch: 'main',
-      path: 'backups'
-    };
+    return defaultConfig;
   }
 
   saveConfig(config: GitHubConfig) {
