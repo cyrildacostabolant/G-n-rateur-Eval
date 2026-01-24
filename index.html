@@ -39,10 +39,10 @@
         line-height: 1.6;
       }
 
-      /* Wrapper pour permettre le redimensionnement manuel et le cadre de 2px */
+      /* Wrapper pour permettre le redimensionnement manuel */
       .img-wrapper {
         display: inline-block;
-        border: 2px solid black;
+        border: none;
         margin: 10px 0;
         resize: both;
         overflow: hidden;
@@ -62,7 +62,6 @@
       @media print {
         .img-wrapper {
           resize: none !important;
-          border-width: 2px !important; /* On garde le cadre noir */
         }
       }
       

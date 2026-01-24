@@ -618,24 +618,8 @@ const App: React.FC = () => {
                           />
                         </div>
                         
-                        <div className="col-span-12 md:col-span-6 space-y-2">
-                          <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1 flex justify-between">
-                            Amorce / Schéma vierge (Élève)
-                            <span className="text-blue-400 font-normal normal-case italic">Remplacera les lignes</span>
-                          </label>
-                          <RichTextInput 
-                            value={q.studentTemplate || ''}
-                            onChange={(val) => {
-                              const qs = [...(currentEval.questions || [])];
-                              qs[idx].studentTemplate = val;
-                              setCurrentEval({...currentEval, questions: qs});
-                            }}
-                            placeholder="Coller ici le schéma vierge pour l'élève..."
-                            className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px] !bg-blue-50/20"
-                          />
-                        </div>
-
-                        <div className="col-span-12 md:col-span-6 space-y-2">
+                        {/* Zone Corrigé / Admin en premier */}
+                        <div className="col-span-12 space-y-2">
                           <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1 flex justify-between">
                             Corrigé / Schéma complété (Admin)
                             <span className="text-emerald-400 font-normal normal-case italic">Vue corrigée</span>
@@ -649,6 +633,24 @@ const App: React.FC = () => {
                             }}
                             placeholder="Coller ici la réponse ou le schéma complété..."
                             className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px] !bg-emerald-50/20"
+                          />
+                        </div>
+
+                        {/* Zone Amorce / Élève en deuxième */}
+                        <div className="col-span-12 space-y-2">
+                          <label className="text-[10px] font-black uppercase text-slate-300 tracking-widest ml-1 flex justify-between">
+                            Amorce / Schéma vierge (Élève)
+                            <span className="text-blue-400 font-normal normal-case italic">Remplacera les lignes</span>
+                          </label>
+                          <RichTextInput 
+                            value={q.studentTemplate || ''}
+                            onChange={(val) => {
+                              const qs = [...(currentEval.questions || [])];
+                              qs[idx].studentTemplate = val;
+                              setCurrentEval({...currentEval, questions: qs});
+                            }}
+                            placeholder="Coller ici le schéma vierge pour l'élève..."
+                            className="mt-1 shadow-sm !rounded-3xl !border-slate-100 !min-h-[150px] !bg-blue-50/20"
                           />
                         </div>
                       </div>
