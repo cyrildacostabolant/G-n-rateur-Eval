@@ -1,0 +1,47 @@
+{
+  "evaluations": [],
+  "categories": [
+    {
+      "id": "02ea9073-785e-43e3-914f-aec630b11d85",
+      "name": "Mathématiques",
+      "color": "#4392f9"
+    },
+    {
+      "id": "3",
+      "name": "Histoire-Géo",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "5e27a8b4-8b13-4731-9e5d-9e894c4857de",
+      "name": "Français",
+      "color": "#969696"
+    },
+    {
+      "id": "6e13bf71-c9cf-49c3-92ca-10601f9f7c3a",
+      "name": "Sciences Physiques",
+      "color": "#f5000c"
+    },
+    {
+      "id": "751950a1-ae69-4c6e-8372-593e571bf9bb",
+      "name": "Espagnol",
+      "color": "#f86868"
+    },
+    {
+      "id": "99cf2fb7-5bf4-4879-835b-74a2199405b0",
+      "name": "BPH",
+      "color": "#10b981"
+    },
+    {
+      "id": "a16312a3-9cfc-49b8-9d3e-c1c22696042f",
+      "name": "S.T.S.S.",
+      "color": "#eea5f3"
+    },
+    {
+      "id": "c9ef090b-5ebd-4f78-b3c5-93a8ccd01183",
+      "name": "Anglais",
+      "color": "#f7e62b"
+    }
+  ],
+  "exportDate": 1770106079229,
+  "version": "2.0"
+}
